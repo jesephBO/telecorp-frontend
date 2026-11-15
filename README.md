@@ -2,6 +2,8 @@
 
 Frontend React + Vite para el portal de clientes y el centro de operaciones de Red TeleCorp.
 
+El dashboard y Estado de red incluyen el mapa satelital React Leaflet con las tres capas de Esri, filtros, cobertura por antena, telemetría, impacto y el Analista de Red (IA). Consulta [MAPA_ESRI.md](./MAPA_ESRI.md) para contratos, permisos, pruebas y los bloqueos detectados en el backend desplegado. El mapa consulta la última medición de todas las antenas del área; el panel de resumen previo conserva su muestra de ocho antenas.
+
 ## Inicio local
 
 Desde esta carpeta, copia `.env.example` como `.env.local` y completa los valores reales de despliegue:
