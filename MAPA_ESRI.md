@@ -4,10 +4,10 @@ Implementación en la rama `feature/redtelecorp-frontend-integration`, dentro de
 
 ## Archivos y arquitectura
 
-- `src/CoverageMap.jsx`: mapa React Leaflet 5, tres capas Esri, popups, detalle, filtros, impacto y asistente.
-- `src/networkModel.js`: normalización de GeoJSON, clasificación, filtros, partición de bbox, paginación y concurrencia.
-- `src/coverage-map.css`: estilos aislados del mapa y adaptación móvil.
-- `src/networkModel.test.js`: pruebas de límites y contratos.
+- `src/components/map/CoverageMap.jsx`: mapa React Leaflet 5, tres capas Esri, popups, detalle, filtros, impacto y asistente.
+- `src/models/networkModel.js`: normalización de GeoJSON, clasificación, filtros y partición de bbox. La paginación y concurrencia están en `src/services/coverageService.js`.
+- `src/styles/coverage-map.css`: estilos aislados del mapa y adaptación móvil.
+- `src/tests/networkModel.test.js`: pruebas de límites y contratos.
 - `src/App.jsx`: integración en ambas vistas, importación diferida y permisos con comparación exacta de grupos.
 - `package.json` / `package-lock.json`: Leaflet, React Leaflet y agrupación de marcadores; comando `npm test`.
 - `.env.example`: variables públicas necesarias. `.gitignore` excluye dependencias, build y configuración local.

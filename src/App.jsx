@@ -1,152 +1,35 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { NETWORK_ROLES } from './networkModel';
-const CoverageMap = lazy(() => import('./CoverageMap'));
-const NetworkMap = props => <Suspense fallback={<div className="panel map-notes" role="status">Cargando mapa satelital…</div>}><CoverageMap {...props}/></Suspense>;
-import { api, endpointsConfigured } from './api';
-import { completeNewPassword, confirmSignUp, getSession, resendConfirmation, signIn, signOut, signUp, tokenClaims } from './auth';
+import AppFooter from './components/layout/AppFooter.jsx';
+import AuthPage from './pages/AuthPage.jsx';
+import NetworkPage from './pages/NetworkPage.jsx';
+import NotificationsPage from './pages/NotificationsPage.jsx';
+import OverviewPage from './pages/OverviewPage.jsx';
+import ReportDetailModal from './components/reports/ReportDetailModal.jsx';
+import ReportFormModal from './components/reports/ReportFormModal.jsx';
+import ReportsPage from './pages/ReportsPage.jsx';
+import Sidebar from './components/layout/Sidebar.jsx';
+import SupportPage from './pages/SupportPage.jsx';
+import Toast from './components/common/Toast.jsx';
+import Topbar from './components/layout/Topbar.jsx';
+import WorkOrdersPage from './pages/WorkOrdersPage.jsx';
+import usePortalController from './hooks/usePortalController.js';
 
-const fmt = (value) => value ? new Date(value).toLocaleString('es-PE', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
-const pick = (...values) => values.find((value) => value !== undefined && value !== null && value !== '');
-const arrayAt = (object, ...keys) => keys.map((key) => object?.[key]).find(Array.isArray) || [];
 
-function Brand({ small = false }) {
-  return <div className={`brand ${small ? 'brand-small' : ''}`}><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M5 25c5-9 10 9 15 0s10 9 15 0 7-2 8 0"/><circle cx="24" cy="24" r="21"/><path className="brand-core" d="M24 13v22M13 24h22"/></svg><span>telecorp<span className="brand-dot">.</span><small>NETWORK INTELLIGENCE</small></span></div>;
-}
-
-function AuthScreen() {
-  const [mode, setMode] = useState('login');
-  const [challenge, setChallenge] = useState(null);
-  const [form, setForm] = useState({ email: '', password: '', dni: '', phone: '', code: '', newPassword: '' });
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
-  const update = (key) => (event) => setForm((old) => ({ ...old, [key]: event.target.value }));
-  const submit = async (event) => {
-    event.preventDefault(); setBusy(true); setMessage('');
-    try {
-      if (mode === 'login') {
-        const result = await signIn(form.email, form.password);
-        if (result.challenge) { setChallenge(result); setMode('new-password'); }
-        else window.location.reload();
-      } else if (mode === 'signup') {
-        await signUp(form); setMode('confirm'); setMessage('Te enviamos un código de verificación a tu correo.');
-      } else if (mode === 'confirm') {
-        await confirmSignUp(form.email, form.code); setMode('login'); setMessage('Cuenta confirmada. Ya puedes iniciar sesión.');
-      } else if (mode === 'new-password') {
-        await completeNewPassword(challenge, form.newPassword); window.location.reload();
-      }
-    } catch (error) { setMessage(error.message); } finally { setBusy(false); }
-  };
-  const title = mode === 'login' ? 'Vuelve a estar en línea.' : mode === 'signup' ? 'Conecta con soporte.' : mode === 'confirm' ? 'Confirma tu correo.' : 'Actualiza tu acceso.';
-  return <main className="auth-shell"><div className="auth-art"><div className="auth-top"><Brand/><span className="live-label"><i/> RED OPERATIVA</span></div><div className="orbital"><div className="orbit orbit-one"/><div className="orbit orbit-two"/><div className="orbit orbit-three"/><div className="orbital-core"><span>TC</span><i/></div><b className="node node-a"/><b className="node node-b"/><b className="node node-c"/></div><div className="auth-claim"><span className="eyebrow">TU RED, EN TIEMPO REAL</span><h1>Una señal.<br/><em>Una ciudad.</em><br/>Siempre conectados.</h1><p>Reporta una incidencia y sigue su evolución con información clara, desde el primer aviso hasta el restablecimiento.</p></div><div className="auth-footer"><span>TELECORP / OPERACIONES</span><span>01 — 24 · LIMA</span></div></div>
-    <div className="auth-panel"><div className="mobile-brand"><Brand/></div><div className="auth-card"><span className="eyebrow">PORTAL DE SERVICIO <b>●</b></span><h2>{title}</h2><p className="muted">Accede a tu espacio de conectividad.</p><form onSubmit={submit}>
-      {mode !== 'new-password' && <label>Correo electrónico<input type="email" autoComplete="email" required value={form.email} onChange={update('email')} placeholder="tu@correo.com"/></label>}
-      {mode === 'signup' && <><label>DNI <span className="optional">OPCIONAL</span><input value={form.dni} onChange={update('dni')} placeholder="Número de documento"/></label><label>Celular <span className="optional">OPCIONAL</span><input type="tel" value={form.phone} onChange={update('phone')} placeholder="+51 999 000 000"/></label></>}
-      {mode === 'login' && <label>Contraseña<input type="password" autoComplete="current-password" required value={form.password} onChange={update('password')} placeholder="Tu contraseña"/></label>}
-      {mode === 'signup' && <label>Contraseña<input type="password" autoComplete="new-password" required minLength="8" value={form.password} onChange={update('password')} placeholder="Mínimo 8 caracteres"/></label>}
-      {mode === 'confirm' && <label>Código de verificación<input required value={form.code} onChange={update('code')} placeholder="Código recibido por correo"/></label>}
-      {mode === 'new-password' && <label>Nueva contraseña<input type="password" autoComplete="new-password" required minLength="8" value={form.newPassword} onChange={update('newPassword')} placeholder="Elige una contraseña segura"/></label>}
-      {message && <div className={message.includes('Te enviamos') || message.includes('confirmada') ? 'notice success' : 'notice error'}>{message}</div>}
-      <button className="primary-button" disabled={busy}>{busy ? 'Procesando…' : mode === 'login' ? 'Entrar al portal' : mode === 'signup' ? 'Crear cuenta' : mode === 'confirm' ? 'Confirmar cuenta' : 'Guardar contraseña'}<span>↗</span></button>
-    </form><div className="auth-links">{mode === 'login' ? <button onClick={() => { setMode('signup'); setMessage(''); }}>¿Nuevo en Telecorp? <b>Crear cuenta</b></button> : <button onClick={() => { setMode('login'); setMessage(''); }}>← Volver a iniciar sesión</button>}{mode === 'confirm' && <button onClick={async () => { try { await resendConfirmation(form.email); setMessage('Solicitamos un nuevo código.'); } catch (e) { setMessage(e.message); } }}>Reenviar código</button>}</div><div className="secure-note"><span>◈</span> Acceso protegido por Amazon Cognito</div></div><span className="auth-copyright">© TELECORP · CENTRO DE EXPERIENCIA DIGITAL</span></div></main>;
-}
-
-function App() {
-  const [session, setSession] = useState(() => getSession());
-  const [profile, setProfile] = useState(null);
-  const [page, setPage] = useState('overview');
-  const [zoneFilter, setZoneFilter] = useState('');
-  const [staffReportMode, setStaffReportMode] = useState('reports');
-  const [reportRefreshKey, setReportRefreshKey] = useState(0);
-  const [data, setData] = useState({ reports: [], metrics: null, alerts: [], zones: [], antennas: [], measurements: [], workOrders: [], notifications: [] });
-  const [busy, setBusy] = useState(false);
-  const [toast, setToast] = useState('');
-  const [reportOpen, setReportOpen] = useState(false);
-  const [detail, setDetail] = useState(null);
-  const [reportForm, setReportForm] = useState({ numeroServicio: '', zona: '', tipoProblema: 'SIN_INTERNET', descripcion: '', fechaHora: '' });
-  const [chatText, setChatText] = useState('');
-  const [chatReply, setChatReply] = useState('');
-  const claims = useMemo(() => session ? tokenClaims(session) : null, [session]);
-  const staff = Boolean(claims?.groups?.some((group) => NETWORK_ROLES.includes(group)));
-  const token = session?.IdToken;
-  const refresh = useCallback(async () => {
-    if (!token) return;
-    setBusy(true);
-    const jobs = [api('identity', '/auth/perfil', { token }).then((profileValue) => setProfile(profileValue.user || profileValue)), api('notifications', '/v1/notifications?limit=20', { token }).then((result) => setData((old) => ({ ...old, notifications: arrayAt(result, 'notifications', 'items') })))];
-    if (staff) jobs.push(api('incidents', '/incidencias/metricas', { token }).then((metrics) => setData((old) => ({ ...old, metrics }))));
-    if (staff) jobs.push(api('telemetry', '/v1/telemetry/alerts?limit=8', { token }).then((result) => setData((old) => ({ ...old, alerts: arrayAt(result, 'alerts', 'items') }))));
-    if (staff) jobs.push(api('coverage', '/v1/coverage/zones?limit=30', { token }).then((result) => {
-      const zones = arrayAt(result, 'features').map((feature) => feature.properties || feature);
-      setData((old) => ({ ...old, zones }));
-      if (!zoneFilter && zones.length) setZoneFilter(String(pick(zones[0].zoneId, zones[0].zone_id, zones[0].id, '')));
-    }));
-    if (staff) jobs.push(api('infrastructure', '/antennas', { token }).then(async (result) => {
-      const antennas = arrayAt(result, 'antennas');
-      setData((old) => ({ ...old, antennas }));
-      const latest = await Promise.allSettled(antennas.slice(0, 8).map(async (antenna) => {
-        const antennaId = pick(antenna.antenna_id, antenna.antennaId, antenna.id);
-        if (!antennaId) return null;
-        return api('telemetry', `/v1/telemetry/antennas/${encodeURIComponent(antennaId)}/latest`, { token });
-      }));
-      setData((old) => ({ ...old, measurements: latest.filter((entry) => entry.status === 'fulfilled' && entry.value).map((entry) => entry.value) }));
-    }));
-    if (staff) jobs.push(api('field', '/work-orders?limit=6', { token }).then((result) => setData((old) => ({ ...old, workOrders: arrayAt(result?.workOrders, 'items') }))));
-    const settled = await Promise.allSettled(jobs);
-    const failed = settled.filter((result) => result.status === 'rejected');
-    if (failed.length) setToast(`${failed.length} servicio(s) no respondieron. Revisa las URL configuradas.`);
-    setBusy(false);
-  }, [staff, token]);
-  useEffect(() => { refresh(); }, [refresh]);
-  useEffect(() => {
-    if (!token) return;
-    const path = staff && zoneFilter ? `/incidencias?zona=${encodeURIComponent(zoneFilter)}${staffReportMode === 'collectives' ? '&tipo=colectivos' : ''}` : '/incidencias';
-    api('incidents', path, { token }).then((result) => setData((old) => ({ ...old, reports: arrayAt(result, 'reportes', 'incidentes', 'items') }))).catch((error) => setToast(error.message));
-  }, [token, staff, zoneFilter, staffReportMode, reportRefreshKey]);
-  useEffect(() => { if (!toast) return undefined; const timer = setTimeout(() => setToast(''), 5000); return () => clearTimeout(timer); }, [toast]);
-  if (!session) return <AuthScreen/>;
-
-  const createReport = async (event) => {
-    event.preventDefault(); setBusy(true);
-    try {
-      const body = { numeroServicio: reportForm.numeroServicio, zona: reportForm.zona, tipoProblema: reportForm.tipoProblema, descripcion: reportForm.descripcion, ...(reportForm.fechaHora ? { fechaHora: new Date(reportForm.fechaHora).toISOString() } : {}) };
-      const result = await api('incidents', '/incidencias', { token, method: 'POST', body });
-      setToast(`Reporte registrado · ${result.reporteId || 'recibido'}`); setReportOpen(false); setReportForm({ numeroServicio: '', zona: '', tipoProblema: 'SIN_INTERNET', descripcion: '', fechaHora: '' }); setReportRefreshKey((key) => key + 1); await refresh();
-    } catch (error) { setToast(error.message); } finally { setBusy(false); }
-  };
-  const openDetail = async (id) => { try { setDetail(await api('incidents', `/incidencias/${encodeURIComponent(id)}`, { token })); } catch (error) { setToast(error.message); } };
-  const updateStatus = async (id, nuevoEstado) => { try { await api('incidents', `/incidencias/${encodeURIComponent(id)}/estado`, { token, method: 'PATCH', body: { nuevoEstado, comentario: 'Actualización desde el centro de operaciones.' } }); setToast('Estado actualizado.'); setReportRefreshKey((key) => key + 1); await refresh(); } catch (error) { setToast(error.message); } };
-  const markRead = async (id) => { try { await api('notifications', `/v1/notifications/${encodeURIComponent(id)}/read`, { token, method: 'PATCH' }); await refresh(); } catch (error) { setToast(error.message); } };
-  const sendChat = async (event) => { event.preventDefault(); try { const result = await api('incidents', '/soporte/chat', { token, method: 'POST', body: { mensaje: chatText } }); setChatReply(pick(result.respuesta, result.message, result.answer, 'Recibimos tu consulta.')); setChatText(''); } catch (error) { setChatReply(error.message); } };
-  const allReports = data.reports;
-  const metricTotal = pick(data.metrics?.totalReportes, data.metrics?.totalIncidencias, data.metrics?.total, data.metrics?.resumen?.total, 0);
-  const activeCount = allReports.filter((report) => !/solucion|cerrad/i.test(String(pick(report.estado, report.status, '')))).length;
-  const identifier = (report) => pick(report.reporteId, report.incidenteId, report.id, report.incidentId, report.incidenceId, '—');
-  const goto = (target) => setPage(target);
-  return <div className="app-shell"><aside className="sidebar"><Brand/><div className="side-caption">ESPACIO DE TRABAJO</div><nav><button className={page === 'overview' ? 'selected' : ''} onClick={() => goto('overview')}><span>⌘</span> Vista general</button><button className={page === 'reports' ? 'selected' : ''} onClick={() => goto('reports')}><span>▤</span> Mis incidencias <i>{allReports.length}</i></button>{staff && <><div className="side-caption section-gap">OPERACIONES</div><button className={page === 'network' ? 'selected' : ''} onClick={() => goto('network')}><span>⌁</span> Estado de red</button><button className={page === 'work' ? 'selected' : ''} onClick={() => goto('work')}><span>◷</span> Órdenes de trabajo</button></>}<button className={page === 'notifications' ? 'selected' : ''} onClick={() => goto('notifications')}><span>◌</span> Notificaciones <i>{data.notifications.filter((n) => !n.read && !n.leida).length || ''}</i></button><button className={page === 'support' ? 'selected' : ''} onClick={() => goto('support')}><span>✳</span> Centro de ayuda</button></nav><div className="sidebar-bottom"><div className="network-mini"><div className="mini-wave">⌁</div><span>RED EN LÍNEA</span><b>Conectividad supervisada</b><small>Estado actualizado al consultar</small></div><div className="user-profile"><div className="avatar">{(profile?.email || claims?.email || 'T').slice(0, 1).toUpperCase()}</div><div className="user-copy"><b>{profile?.email || claims?.email}</b><small>{staff ? 'OPERACIONES' : 'CLIENTE'}</small></div><button title="Cerrar sesión" onClick={() => { signOut(); setSession(null); }}>↗</button></div></div></aside>
-    <main className="main-area"><header className="topbar"><div className="breadcrumb"><span>TELECORP</span><b>/</b>{pageLabel(page)}</div><div className="top-actions"><span className="top-clock"><span className="pulse-dot"/>{busy ? 'SINCRONIZANDO' : 'EN VIVO'}</span><button className="icon-button" aria-label="Actualizar" onClick={() => { refresh(); setReportRefreshKey((key) => key + 1); }}>↻</button><button className="top-avatar" onClick={() => goto('notifications')}>{(profile?.email || claims?.email || 'T').slice(0, 1).toUpperCase()}</button></div></header>
-      <section className="page-content">{page === 'overview' && <><div className="hero-row"><div><span className="eyebrow">PANEL DE CONECTIVIDAD <b>●</b> {new Date().toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase()}</span><h1>Hola, <em>{(profile?.email || claims?.email || 'vecino').split('@')[0].split(/[._-]/)[0]}.</em></h1><p className="muted">{staff ? 'Una lectura clara de tu red, para decidir rápido.' : 'Tu conexión importa. Aquí puedes seguir tus reportes y mantenerte informado.'}</p></div><button className="primary-button compact" onClick={() => setReportOpen(true)}>＋ Reportar un problema</button></div>
-        {staff ? <><div className="signal-banner"><div className="banner-copy"><span className="eyebrow">CENTRO DE OPERACIONES <b>●</b> ACTUALIZACIÓN BAJO DEMANDA</span><h2>La red habla.<br/><em>Estamos escuchando.</em></h2><p>Las métricas y alertas aparecen aquí cuando los servicios configurados responden.</p></div><div className="banner-visual"><div className="scanner"><div/><div/><div/><span>TC</span></div><div className="banner-coordinate">LIM · PE<br/>12°02′ S / 77°02′ W</div><div className="banner-tag">TELEMETRÍA<br/><b>BAJO DEMANDA</b></div></div></div><div className="stat-grid"><Stat label="REPORTES REGISTRADOS" value={metricTotal} note="Métricas del servicio" icon="▤"/><Stat label="INCIDENCIAS ABIERTAS" value={activeCount} note="Reportes visibles" icon="⌁" accent="amber"/><Stat label="ALERTAS DE RED" value={data.alerts.length} note="Telemetría disponible" icon="⌖" accent="rose"/><Stat label="ANTENAS REGISTRADAS" value={data.antennas.length} note="Inventario de infraestructura" icon="◉"/></div><div className="ops-filters"><label className="filter-control">ZONA<select value={zoneFilter} onChange={(event) => setZoneFilter(event.target.value)}><option value="">Mis reportes</option>{data.zones.map((zone, index) => { const id = pick(zone.zoneId, zone.zone_id, zone.id); return id && <option key={id || index} value={id}>{pick(zone.name, zone.nombre, id)}</option>; })}</select></label><label className="filter-control">TIPO<select value={staffReportMode} onChange={(event) => setStaffReportMode(event.target.value)}><option value="reports">Reportes</option><option value="collectives" disabled={!zoneFilter}>Colectivos por zona</option></select></label></div><NetworkMap token={token} groups={claims?.groups || []} alerts={data.alerts} zones={data.zones}/><div className="dashboard-grid"><section className="panel report-panel"><PanelHead title="Incidencias recientes" subtitle="Últimos reportes recibidos" action="Ver todas" onAction={() => goto('reports')}/><ReportList reports={allReports.slice(0, 5)} onOpen={openDetail} staff={staff} onStatus={updateStatus}/></section><section className="panel side-panel"><PanelHead title="Señales de la red" subtitle="Alertas de telemetría"/><div className="alert-list">{data.alerts.length ? data.alerts.slice(0, 5).map((alert, index) => <AlertRow key={alert.alertId || index} alert={alert}/>) : <EmptyState title="Sin alertas cargadas" text="Las alertas aparecerán cuando telemetry_base_url esté disponible."/>}</div></section><section className="panel zone-panel"><PanelHead title="Panorama por zona" subtitle="Zonas devueltas por cobertura" action="Estado de red" onAction={() => goto('network')}/><div className="zone-strip">{data.zones.length ? data.zones.slice(0, 5).map((zone, i) => <div className="zone-chip" key={zone.zoneId || zone.id || i}><span className="zone-spark">⌁</span><b>{pick(zone.name, zone.nombre, zone.zoneId, zone.id, `Zona ${i + 1}`)}</b><small>{pick(zone.criticality, zone.criticidad, zone.status, 'Cobertura registrada')}</small></div>) : <EmptyState title="Atlas pendiente de conexión" text="Configura el servicio de cobertura para cargar zonas reales."/>}</div></section><section className="panel activity-panel"><PanelHead title="Actividad de campo" subtitle="Órdenes de trabajo" action="Ver órdenes" onAction={() => goto('work')}/>{data.workOrders.length ? data.workOrders.slice(0, 4).map((order, i) => <div className="work-row" key={order.workOrderId || order.id || i}><span className="work-icon">⌖</span><div><b>{pick(order.title, order.tipo, order.antennaId, order.id, 'Orden de trabajo')}</b><small>{pick(order.zone, order.zona, order.status, 'Pendiente de detalle')}</small></div><span className="status-pill">{pick(order.status, order.estado, 'ABIERTA')}</span></div>) : <EmptyState title="Sin órdenes disponibles" text="Las tareas de campo aparecerán al conectar el servicio."/>}</section></div></> : <><div className="customer-hero"><div className="customer-copy"><span className="eyebrow">TU CONEXIÓN, CON CONTEXTO</span><h2>Una incidencia empieza<br/>con <em>ser escuchado.</em></h2><p>Cuéntanos qué sucede. Te mantendremos al tanto desde este espacio.</p><button className="primary-button compact" onClick={() => setReportOpen(true)}>＋ Crear reporte</button></div><div className="customer-art"><div className="customer-ring ring-a"/><div className="customer-ring ring-b"/><div className="customer-ring ring-c"/><span className="customer-glyph">⌁</span><div className="customer-coordinate">TU SEÑAL<br/><b>EN SEGUIMIENTO</b></div></div></div><div className="stat-grid customer-stats"><Stat label="TUS REPORTES" value={allReports.length} note="Historial registrado" icon="▤"/><Stat label="EN SEGUIMIENTO" value={activeCount} note="Aún no solucionados" icon="⌁" accent="amber"/><Stat label="MENSAJES" value={data.notifications.filter((n) => !n.read && !n.leida).length} note="Notificaciones pendientes" icon="◌"/><Stat label="ÚLTIMA ACTUALIZACIÓN" value={allReports[0] ? fmt(pick(allReports[0].updatedAt, allReports[0].fechaHora, allReports[0].createdAt)) : '—'} note="Según tus reportes" icon="◷"/></div><section className="panel customer-reports"><PanelHead title="Tus incidencias" subtitle="Consulta el progreso y el historial" action="Ver historial" onAction={() => goto('reports')}/><ReportList reports={allReports.slice(0, 4)} onOpen={openDetail}/></section></>}
-      </>}
-      {page === 'reports' && <><PageTitle eyebrow={staff ? 'MESA DE SERVICIO' : 'TU HISTORIAL'} title={staff ? 'Incidencias' : 'Tus reportes'} subtitle={staff ? 'Revisa los reportes y gestiona su estado.' : 'Cada reporte conserva su historial de evolución.'} action={<button className="primary-button compact" onClick={() => setReportOpen(true)}>＋ Nuevo reporte</button>}/><section className="panel full-panel"><ReportList reports={allReports} onOpen={openDetail} staff={staff} onStatus={updateStatus}/></section></>}
-      {page === 'network' && staff && <><PageTitle eyebrow="OBSERVABILIDAD" title="Estado de red" subtitle="Zonas, cobertura y telemetría de los endpoints conectados."/><div className="stat-grid"><Stat label="ZONAS" value={data.zones.length} note="Features recibidas" icon="◉"/><Stat label="ALERTAS" value={data.alerts.length} note="Telemetría actual" icon="⌖" accent="rose"/><Stat label="REPORTES" value={metricTotal} note="Métricas de incidencias" icon="▤"/><Stat label="ANTENAS" value={data.antennas.length} note="Inventario de infraestructura" icon="⌁"/></div><NetworkMap token={token} groups={claims?.groups || []} alerts={data.alerts} zones={data.zones}/><div className="dashboard-grid network-lower"><section className="panel"><PanelHead title="Alertas recientes" subtitle="GET /v1/telemetry/alerts"/>{data.alerts.length ? data.alerts.map((alert, i) => <AlertRow key={alert.alertId || i} alert={alert}/>) : <EmptyState title="Sin alertas disponibles" text="Conecta el microservicio de telemetría."/>}</section><section className="panel"><PanelHead title="Mediciones de antenas" subtitle="GET /v1/telemetry/antennas/{id}/latest · muestra de hasta 8 antenas"/>{data.measurements.length ? data.measurements.map((sample, i) => <div className="antenna-measure" key={sample.antenna_id || i}><span className={`measure-state ${telemetryClass(sample.status)}`}/><div><b>{sample.antenna_id}</b><small>{fmt(sample.timestamp)}</small></div><strong>{pick(sample.traffic_gb_min, '—')} <small>GB/min</small></strong><span className="status-pill">{pick(sample.status, 'SIN ESTADO')}</span></div>) : <EmptyState title="Sin mediciones recientes" text="Se consultan hasta 8 antenas del inventario; cada una debe tener una medición recibida."/>}</section></div></>}
-      {page === 'work' && <><PageTitle eyebrow="OPERACIÓN EN CAMPO" title="Órdenes de trabajo" subtitle="Tareas devueltas por el servicio de operaciones."/><section className="panel full-panel"><PanelHead title="Cola de trabajo" subtitle="GET /work-orders"/>{data.workOrders.length ? data.workOrders.map((order, i) => <div className="work-row large-row" key={order.workOrderId || order.id || i}><span className="work-icon">⌖</span><div><b>{pick(order.title, order.tipo, order.antennaId, order.id, 'Orden de trabajo')}</b><small>{pick(order.zone, order.zona, order.description, 'Sin descripción adicional')}</small></div><span className="status-pill">{pick(order.status, order.estado, 'ABIERTA')}</span></div>) : <EmptyState title="No hay órdenes para mostrar" text="Revisa el endpoint del servicio field y los permisos del grupo Cognito."/>}</section></>}
-      {page === 'notifications' && <><PageTitle eyebrow="CENTRO DE MENSAJES" title="Notificaciones" subtitle="Actualizaciones de tus incidencias y del servicio."/><section className="panel full-panel"><PanelHead title="Tu bandeja" subtitle="GET /v1/notifications"/>{data.notifications.length ? data.notifications.map((item, i) => <div className="notification-row" key={item.notificationId || item.id || i}><span className="notice-icon">◌</span><div><b>{pick(item.title, item.titulo, item.type, 'Actualización de servicio')}</b><p>{pick(item.message, item.mensaje, item.body, item.descripcion, 'Hay una actualización disponible.')}</p><small>{fmt(pick(item.createdAt, item.fecha, item.timestamp))}</small></div>{!(item.read || item.leida) && <button className="text-action" onClick={() => markRead(pick(item.notificationId, item.id))}>Marcar leída</button>}</div>) : <EmptyState title="Todo en calma" text="Cuando haya novedades de tus reportes, las verás aquí."/>}</section></>}
-      {page === 'support' && <><PageTitle eyebrow="ASISTENCIA" title="Centro de ayuda" subtitle="Consulta sobre una incidencia o cuéntanos qué necesitas."/><section className="panel support-panel"><div className="support-mark">✳</div><h2>¿En qué podemos ayudarte?</h2><p className="muted">El asistente utiliza el endpoint de soporte configurado para orientar tu consulta.</p><form className="chat-form" onSubmit={sendChat}><input required value={chatText} onChange={(event) => setChatText(event.target.value)} placeholder="Escribe tu consulta…"/><button className="primary-button compact">Enviar ↗</button></form>{chatReply && <div className="chat-reply">{chatReply}</div>}</section></>}
-      <footer className="page-footer"><span>TELECORP / CUSTOMER & NETWORK EXPERIENCE</span><span>{endpointsConfigured ? 'SERVICIOS API CONFIGURADOS' : 'CONFIGURA LOS ENDPOINTS PARA ACTIVAR DATOS'}</span></footer>
+export default function App() {
+  const portal = usePortalController();
+  if (!portal.session) return <AuthPage/>;
+  const { detail, page, reportOpen, staff, toast } = portal;
+  return <div className="app-shell"><Sidebar {...portal}/>
+    <main className="main-area"><Topbar {...portal}/>
+      <section className="page-content">{page === 'overview' && <OverviewPage {...portal}/>}
+      {page === 'reports' && <ReportsPage {...portal}/>}
+      {page === 'network' && staff && <NetworkPage {...portal}/>}
+      {page === 'work' && <WorkOrdersPage {...portal}/>}
+      {page === 'notifications' && <NotificationsPage {...portal}/>}
+      {page === 'support' && <SupportPage {...portal}/>}
+      <AppFooter {...portal}/>
       </section></main>
-    {toast && <div className="toast" role="status">{toast}<button onClick={() => setToast('')}>×</button></div>}
-    {reportOpen && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setReportOpen(false); }}><section className="modal-card"><button className="modal-close" onClick={() => setReportOpen(false)}>×</button><span className="eyebrow">NUEVO REPORTE · TELECORP</span><h2>Cuéntanos qué ocurre.</h2><p className="muted">Estos datos ayudan a localizar y priorizar el inconveniente.</p><form className="report-form" onSubmit={createReport}><label>Número asociado al servicio<input required value={reportForm.numeroServicio} onChange={(e) => setReportForm({ ...reportForm, numeroServicio: e.target.value })} placeholder="Número de línea o servicio"/></label><div className="form-split"><label>Zona aproximada<input required value={reportForm.zona} onChange={(e) => setReportForm({ ...reportForm, zona: e.target.value })} placeholder="ID de zona, por ejemplo ZONE-01"/></label><label>Tipo de problema<select value={reportForm.tipoProblema} onChange={(e) => setReportForm({ ...reportForm, tipoProblema: e.target.value })}><option value="SIN_INTERNET">Sin Internet</option><option value="SIN_COBERTURA">Sin cobertura</option><option value="LENTITUD">Conexión lenta</option><option value="LLAMADAS">Problema con llamadas</option><option value="MENSAJES">Problema con mensajes</option><option value="OTRO">Otro</option></select></label></div><label>Fecha y hora del inconveniente <span className="optional">OPCIONAL</span><input type="datetime-local" value={reportForm.fechaHora} onChange={(e) => setReportForm({ ...reportForm, fechaHora: e.target.value })}/></label><label>Descripción<textarea required minLength="8" rows="4" value={reportForm.descripcion} onChange={(e) => setReportForm({ ...reportForm, descripcion: e.target.value })} placeholder="Describe lo que sucede y desde cuándo…"/></label><button className="primary-button" disabled={busy}>{busy ? 'Enviando…' : 'Enviar reporte'}<span>↗</span></button></form></section></div>}
-    {detail && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetail(null); }}><section className="modal-card detail-card"><button className="modal-close" onClick={() => setDetail(null)}>×</button><span className="eyebrow">DETALLE DE INCIDENCIA</span><h2>Reporte <em>#{identifier(detail.reporte || detail.detalle || detail)}</em></h2>{(() => { const report = detail.reporte || detail.detalle || detail; const history = arrayAt(detail, 'historial', 'history', 'eventos'); const status = pick(report.estado, report.status, 'REGISTRADA'); return <><div className="detail-facts"><span>ESTADO<b>{status}</b></span><span>ZONA<b>{pick(report.zona, report.zone, '—')}</b></span><span>TIPO<b>{pick(report.tipoProblema, report.tipo, '—')}</b></span><span>REGISTRADO<b>{fmt(pick(report.createdAt, report.fechaHora, report.created_at))}</b></span></div><p>{pick(report.descripcion, report.description, 'Sin descripción')}</p>{staff && <label>Actualizar estado<select defaultValue="" onChange={(event) => { if (event.target.value) updateStatus(identifier(report), event.target.value); }}><option value="" disabled>Seleccionar estado…</option>{allowedStatuses(status).map((next) => <option key={next} value={next}>{next.replaceAll('_', ' ')}</option>)}</select></label>}<h3>Historial</h3>{history.length ? history.map((event, i) => <div className="history-row" key={event.id || i}><i/><div><b>{pick(event.estadoNuevo, event.estado, event.status, event.accion, 'Actualización')}</b><small>{fmt(pick(event.occurred_at, event.fecha, event.createdAt, event.timestamp))} · {pick(event.comentario, event.description, '')}</small></div></div>) : <EmptyState title="Sin eventos de historial" text="El endpoint no devolvió cambios previos para este reporte."/>}</>; })()}</section></div>}
+    {toast && <Toast {...portal}/>}
+    {reportOpen && <ReportFormModal {...portal}/>}
+    {detail && <ReportDetailModal {...portal}/>}
   </div>;
 }
-
-function pageLabel(page) { return ({ overview: 'VISTA GENERAL', reports: 'INCIDENCIAS', network: 'ESTADO DE RED', work: 'ÓRDENES DE TRABAJO', notifications: 'NOTIFICACIONES', support: 'CENTRO DE AYUDA' })[page] || 'VISTA GENERAL'; }
-function allowedStatuses(status) { return ({ REGISTRADA: ['EN_REVISION'], DETECTADO: ['EN_REVISION', 'EN_ATENCION', 'SOLUCIONADA'], EN_REVISION: ['SIENDO_ATENDIDA', 'EN_ATENCION', 'SOLUCIONADA'], SIENDO_ATENDIDA: ['SOLUCIONADA'], EN_ATENCION: ['SOLUCIONADA'], SOLUCIONADA: ['CERRADA'] })[status] || []; }
-function telemetryClass(status) { return ({ NORMAL: 'measure-normal', DOWN: 'measure-down', DISABLED: 'measure-down', SATURATED: 'measure-hot' })[status] || ''; }
-function Stat({ label, value, note, icon, accent = '' }) { return <div className={`stat-card ${accent}`}><div className="stat-top"><span>{label}</span><i>{icon}</i></div><strong>{value}</strong><small>{note}</small></div>; }
-function PanelHead({ title, subtitle, action, onAction }) { return <div className="panel-head"><div><h3>{title}</h3><p>{subtitle}</p></div>{action && <button className="panel-action" onClick={onAction}>{action} ↗</button>}</div>; }
-function PageTitle({ eyebrow, title, subtitle, action }) { return <div className="page-title"><div><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p className="muted">{subtitle}</p></div>{action}</div>; }
-function EmptyState({ title, text }) { return <div className="empty-state"><span>⌁</span><b>{title}</b><p>{text}</p></div>; }
-function ReportList({ reports, onOpen, staff = false, onStatus }) { if (!reports.length) return <EmptyState title="Todavía no hay reportes" text="Cuando se registre una incidencia, aparecerá en esta lista."/>; return <div className="report-list">{reports.map((report, i) => { const id = pick(report.reporteId, report.id, report.incidentId, report.incidenceId); const status = String(pick(report.estado, report.status, 'REGISTRADA')); return <article className="report-row" key={id || i}><button className="report-main" onClick={() => id && onOpen(id)}><span className={`report-icon ${/solucion|cerrad/i.test(status) ? 'done' : ''}`}>{/solucion|cerrad/i.test(status) ? '✓' : '⌁'}</span><span className="report-copy"><b>{pick(report.tipoProblema, report.tipo, report.issueType, 'Incidencia de servicio')}</b><small>{pick(report.zona, report.zone, 'Zona no especificada')} · {fmt(pick(report.createdAt, report.fechaHora, report.created_at))}</small></span><span className={`status-pill ${/solucion|cerrad/i.test(status) ? 'status-done' : ''}`}>{status.replaceAll('_', ' ')}</span></button>{staff && <select className="inline-status" aria-label="Actualizar estado" defaultValue="" onChange={(e) => { if (e.target.value && id) onStatus(id, e.target.value); }}><option value="" disabled>Actualizar</option>{allowedStatuses(status).map((next) => <option key={next} value={next}>{next.replaceAll('_', ' ')}</option>)}</select>}</article>; })}</div>; }
-function AlertRow({ alert, index = 0 }) { return <div className="alert-row"><span className="alert-mark">{alert.status === 'RESOLVED' ? '✓' : '!'}</span><div><b>{pick(alert.title, alert.antennaId, alert.alertType, alert.tipo, 'Alerta de infraestructura')}</b><small>{pick(alert.zone, alert.zona, alert.status, 'Telemetría reportada')} · {fmt(pick(alert.createdAt, alert.timestamp, alert.fecha))}</small></div><span className="alert-severity">{pick(alert.severity, alert.severidad, alert.status, 'ACTIVA')}</span></div>; }
-
-export default App;

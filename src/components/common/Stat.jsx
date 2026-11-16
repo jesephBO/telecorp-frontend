@@ -1,0 +1,1 @@
+export default function Stat({ label, value, note, icon, accent = '' }) { return <div className={`stat-card ${accent}`}><div className="stat-top"><span>{label}</span><i>{icon}</i></div><strong>{value}</strong><small>{note}</small></div>; }

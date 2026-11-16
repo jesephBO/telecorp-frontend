@@ -1,0 +1,2 @@
+export function allowedStatuses(status) { return ({ REGISTRADA: ['EN_REVISION'], DETECTADO: ['EN_REVISION', 'EN_ATENCION', 'SOLUCIONADA'], EN_REVISION: ['SIENDO_ATENDIDA', 'EN_ATENCION', 'SOLUCIONADA'], SIENDO_ATENDIDA: ['SOLUCIONADA'], EN_ATENCION: ['SOLUCIONADA'], SOLUCIONADA: ['CERRADA'] })[status] || []; }
+export function telemetryClass(status) { return ({ NORMAL: 'measure-normal', DOWN: 'measure-down', DISABLED: 'measure-down', SATURATED: 'measure-hot' })[status] || ''; }

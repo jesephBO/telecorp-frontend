@@ -1,0 +1,1 @@
+export default function PanelHead({ title, subtitle, action, onAction }) { return <div className="panel-head"><div><h3>{title}</h3><p>{subtitle}</p></div>{action && <button className="panel-action" onClick={onAction}>{action} ↗</button>}</div>; }

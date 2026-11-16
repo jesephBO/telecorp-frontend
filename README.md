@@ -33,3 +33,29 @@ Los paneles muestran estados vacíos cuando una API no está configurada o no co
 ## Requisito de CORS
 
 En el despliegue de los microservicios, configura `frontendOrigin` con el origen del frontend (por ejemplo, el dominio de CloudFront/S3 o `http://localhost:5173` para desarrollo). Las APIs deben admitir `Authorization` y los métodos `GET`, `POST` y `PATCH` usados por el portal. El frontend no hace llamadas directas a AWS con credenciales; Cognito entrega el token y cada API aplica su authorizer.
+
+
+## Organización del código
+
+```text
+src/
+  App.jsx                  # Composición y selección de la página
+  main.jsx                 # Entrada de React
+  api/client.js            # Cliente HTTP compartido
+  config/                  # URLs de servicios y capas Esri
+  services/                # Autenticación y consultas de cobertura
+  hooks/                   # Estado y coordinación del portal y del mapa
+  pages/                   # Autenticación, resumen, red, reportes, campo, avisos y ayuda
+  components/
+    common/                # Marca, tarjetas, encabezados y avisos
+    layout/                # Sidebar, barra superior y pie
+    reports/               # Listado y modales de reportes
+    telemetry/             # Componentes de alertas
+    map/                   # Mapa, marcadores, popups y analista
+  models/                  # Normalización, estados y filtros de antenas
+  utils/                   # Formatos, estados y etiquetas de navegación
+  styles/                  # CSS global y del mapa
+  tests/                   # Pruebas existentes
+```
+
+Esta separación conserva el JSX, las clases CSS, los estilos y las operaciones del portal. No añade rutas ni cambia contratos de API. `npm test` utiliza la nueva ubicación de las pruebas. Para agregar una pantalla, crearla en `pages/` y componer sus piezas con `components/`; las solicitudes compartidas pertenecen a `api/` y `services/`, y la coordinación de estado a `hooks/`.

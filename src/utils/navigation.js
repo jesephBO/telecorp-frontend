@@ -1,0 +1,1 @@
+export function pageLabel(page) { return ({ overview: 'VISTA GENERAL', reports: 'INCIDENCIAS', network: 'ESTADO DE RED', work: 'ÓRDENES DE TRABAJO', notifications: 'NOTIFICACIONES', support: 'CENTRO DE AYUDA' })[page] || 'VISTA GENERAL'; }

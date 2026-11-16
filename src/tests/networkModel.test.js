@@ -1,6 +1,7 @@
+import { fetchCoverage, mapConcurrent } from '../services/coverageService.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { NETWORK_ROLES, IMPACT_ROLES, stateOf, normalizeAntenna, filterAntennas, splitBounds, boundsFromStations, fetchCoverage, mapConcurrent } from './networkModel.js';
+import { NETWORK_ROLES, IMPACT_ROLES, stateOf, normalizeAntenna, filterAntennas, splitBounds, boundsFromStations } from '../models/networkModel.js';
 
 const feature = { type: 'Feature', id: 'ANT-1', geometry: { type: 'Point', coordinates: [-77.04, -12.04] }, properties: { antenna_id: 'ANT-1', coverage_radius_m: '1250', zone_id: 'ZONE-1' } };
 test('GeoJSON longitude/latitude order and explicit metre radius, with real inventory keys', () => {
